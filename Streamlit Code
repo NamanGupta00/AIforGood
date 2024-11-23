@@ -12,7 +12,11 @@ st.set_page_config(
 )
 
 # Set up Snowflake session
-session = get_active_session()
+try:
+    session = get_active_session()
+except Exception as e:
+    st.error(f"Error setting up Snowflake session: {e}")
+    st.stop()
 
 # Sidebar Menu
 st.sidebar.markdown(
@@ -115,11 +119,20 @@ elif option == "Accident Severity by Junction Type":
     st.title('Road Accidents in India in 2019')
     
     # Fetch data from Snowflake
-    df = session.sql(
-        """
-        SELECT * FROM project_db.project_schema.roadaccidents2019
-        """
-    ).to_pandas()
+    try:
+        df = session.sql(
+            """
+            SELECT * FROM project_db.project_schema.roadaccidents2019
+            """
+        ).to_pandas()
+    except Exception as e:
+        st.error(f"Error fetching data from Snowflake: {e}")
+        st.stop()
+
+    # Validate if dataframe is not empty
+    if df.empty:
+        st.warning("No data available for Road Accidents in 2019.")
+        st.stop()
     
     # Calculate accident severity metrics by junction type
     junction_types = {
@@ -164,12 +177,22 @@ elif option == "Accident Severity by Junction Type":
 
 elif option == "Top States with High Accident Rates":
     # Fetch data from Snowflake
-    df = session.sql(
-        """
-        SELECT States_UTs AS STATE, Total_Accidents FROM project_db.project_schema.roadaccidents2019 
-        ORDER BY Total_Accidents DESC
-        """
-    ).to_pandas()
+    try:
+        df = session.sql(
+            """
+            SELECT States_UTs AS STATE, Total_Accidents FROM project_db.project_schema.roadaccidents2019 
+            ORDER BY Total_Accidents DESC
+            """
+        ).to_pandas()
+    except Exception as e:
+        st.error(f"Error fetching data from Snowflake: {e}")
+        st.stop()
+
+    # Validate if dataframe is not empty
+    if df.empty:
+        st.warning("No data available for Top States with High Accident Rates.")
+        st.stop()
+        
     df["TOTAL_ACCIDENTS"] = pd.to_numeric(df["TOTAL_ACCIDENTS"], errors="coerce")
     
     # Create a radial chart using Altair
@@ -199,35 +222,44 @@ elif option == "Injury Types Analysis":
     st.write("This section displays the analysis of injury types.")
     
     # Fetch data from Snowflake
-    df = session.sql(
-        """
-        SELECT 
-            States_UTs AS STATE,
-            SUM(T_Junction_Injured_Grievously) AS T_Junction_Grievously,
-            SUM(T_Junction_Injured_Minor) AS T_Junction_Minor,
-            SUM(T_Junction_Injured_Total) AS T_Junction_Total,
-            SUM(Y_Junction_Injured_Grievously) AS Y_Junction_Grievously,
-            SUM(Y_Junction_Injured_Minor) AS Y_Junction_Minor,
-            SUM(Y_Junction_Injured_Total) AS Y_Junction_Total,
-            SUM(Four_Arm_Junction_Injured_Grievously) AS Four_Arm_Grievously,
-            SUM(Four_Arm_Junction_Injured_Minor) AS Four_Arm_Minor,
-            SUM(Four_Arm_Junction_Injured_Total) AS Four_Arm_Total,
-            SUM(Staggered_Junction_Injured_Grievously) AS Staggered_Grievously,
-            SUM(Staggered_Junction_Injured_Minor) AS Staggered_Minor,
-            SUM(Staggered_Junction_Injured_Total) AS Staggered_Total,
-            SUM(Roundabout_Junction_Injured_Grievously) AS Roundabout_Grievously,
-            SUM(Roundabout_Junction_Injured_Minor) AS Roundabout_Minor,
-            SUM(Roundabout_Junction_Injured_Total) AS Roundabout_Total,
-            SUM(Others_Injured_Grievously) AS Others_Grievously,
-            SUM(Others_Injured_Minor) AS Others_Minor,
-            SUM(Others_Injured_Total) AS Others_Total
-        FROM 
-            project_db.project_schema.roadaccidents2019
-        GROUP BY 
-            States_UTs
-        """
-    ).to_pandas()
-    
+    try:
+        df = session.sql(
+            """
+            SELECT 
+                States_UTs AS STATE,
+                SUM(T_Junction_Injured_Grievously) AS T_Junction_Grievously,
+                SUM(T_Junction_Injured_Minor) AS T_Junction_Minor,
+                SUM(T_Junction_Injured_Total) AS T_Junction_Total,
+                SUM(Y_Junction_Injured_Grievously) AS Y_Junction_Grievously,
+                SUM(Y_Junction_Injured_Minor) AS Y_Junction_Minor,
+                SUM(Y_Junction_Injured_Total) AS Y_Junction_Total,
+                SUM(Four_Arm_Junction_Injured_Grievously) AS Four_Arm_Grievously,
+                SUM(Four_Arm_Junction_Injured_Minor) AS Four_Arm_Minor,
+                SUM(Four_Arm_Junction_Injured_Total) AS Four_Arm_Total,
+                SUM(Staggered_Junction_Injured_Grievously) AS Staggered_Grievously,
+                SUM(Staggered_Junction_Injured_Minor) AS Staggered_Minor,
+                SUM(Staggered_Junction_Injured_Total) AS Staggered_Total,
+                SUM(Roundabout_Junction_Injured_Grievously) AS Roundabout_Grievously,
+                SUM(Roundabout_Junction_Injured_Minor) AS Roundabout_Minor,
+                SUM(Roundabout_Junction_Injured_Total) AS Roundabout_Total,
+                SUM(Others_Injured_Grievously) AS Others_Grievously,
+                SUM(Others_Injured_Minor) AS Others_Minor,
+                SUM(Others_Injured_Total) AS Others_Total
+            FROM 
+                project_db.project_schema.roadaccidents2019
+            GROUP BY 
+                States_UTs
+            """
+        ).to_pandas()
+    except Exception as e:
+        st.error(f"Error fetching data from Snowflake: {e}")
+        st.stop()
+        
+     # Validate if dataframe is not empty
+    if df.empty:
+        st.warning("No data available for Injury Types Analysis.")
+        st.stop()
+        
     # Data Transformation
     data_long = df.melt(
         id_vars=["STATE"],
