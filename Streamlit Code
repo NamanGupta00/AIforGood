@@ -1,0 +1,264 @@
+import streamlit as st
+import numpy as np
+import pandas as pd
+import altair as alt
+from snowflake.snowpark.context import get_active_session
+
+# Set page configuration
+st.set_page_config(
+    page_title="AI For Good Hackathon",
+    page_icon="🤖",
+    layout="wide"
+)
+
+# Set up Snowflake session
+session = get_active_session()
+
+# Sidebar Menu
+st.sidebar.markdown(
+    "<h1 style='text-align: center; color:#29B5E8;'>AI For Good</h1>",
+    unsafe_allow_html=True
+)
+option = st.sidebar.selectbox(
+    "Choose an Insight:",
+    ["Overview", "Accident Severity by Junction Type", "Top States with High Accident Rates", "Injury Types Analysis"]
+)
+
+# Display content based on the selection
+if option == "Overview":
+    # Add custom CSS for background styling
+    st.markdown(
+     """
+     <style>
+     body {
+     background-color: #f7f9fc;
+     color: #333333;
+     }
+     .main {
+     background-color: ##24323D;
+     padding: 2rem;
+     border-radius: 15px;
+     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+     }
+     h1, h2, h3 {
+     color: #4A90E2;
+     }
+     </style>
+     """,
+     unsafe_allow_html=True,
+    )
+    
+    # Add a header with emojis
+    st.header("📊 Welcome to the Interactive Dashboard")
+    
+    # Add a hero image/banner
+    st.image(
+     "https://images.unsplash.com/photo-1666875753105-c63a6f3bdc86?q=80&w=1773&auto=format&fit=crop&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+     use_column_width=True,
+    )
+    
+    # Overview section with emojis and markdown
+    st.header("🔍 Overview")
+    st.markdown(
+     """
+     Welcome to my **RoadAccident2019 Analysis Project** visualizing and analyzing data. 
+     Here's what you can see in my project:
+     - 🌟 **Analytics**: Check the different analytics done on the data.
+     - 🛠 **Usage of different tools**: Used different tools according to requirement.
+     - 📈 **Dynamic visualizations**: Bring your data to life.
+     - 💾 **Export options**: Download your data insights in various formats.
+     """
+    )
+    
+    # Add a KPI section
+    st.subheader("📈Analysis Done")
+    col1, col2, col3 = st.columns(3)
+    
+    with col1:
+     st.metric(label="Accident Severity",value = "By Junction Type")
+    with col2:
+     st.metric(label="Top States With High",value = "Accident Rates")
+    with col3:
+     st.metric(label="Injury Type", value="Analysis")
+    
+    # Add progress bars for visual status
+    st.subheader("📊 Project Tools Used")
+    st.write("Here are the tools which are used")
+    st.markdown(
+        """
+        - **Snowflake**
+        - **AWS**
+        - **Streamlit**
+        - **SQL**
+        - **Python**
+        
+        """
+    )
+    data_url = "https://www.data.gov.in/catalog/road-accidents-india-2019"
+    # Add a call-to-action button
+    st.markdown("---")
+    st.markdown(f"""
+     <a href="{data_url}" target="_blank" style="
+     display: inline-block;
+     text-decoration: none;
+     background-color: #29B5E8;
+     color: black;
+     padding: 10px 20px;
+     font-size: 16px;
+     border-radius: 5px;
+     border: none;
+     text-align: center;">
+     Go to Raw Data
+     </a>
+    """, unsafe_allow_html=True)
+elif option == "Accident Severity by Junction Type":
+    st.title('Road Accidents in India in 2019')
+    
+    # Fetch data from Snowflake
+    df = session.sql(
+        """
+        SELECT * FROM project_db.project_schema.roadaccidents2019
+        """
+    ).to_pandas()
+    
+    # Calculate accident severity metrics by junction type
+    junction_types = {
+        "T-Junction": ["T_JUNCTION_TOTAL_ACCIDENTS", "T_JUNCTION_PERSONS_KILLED", "T_JUNCTION_INJURED_TOTAL"],
+        "Y-Junction": ["Y_JUNCTION_TOTAL_ACCIDENTS", "Y_JUNCTION_PERSONS_KILLED", "Y_JUNCTION_INJURED_TOTAL"],
+        "Four-Arm Junction": ["FOUR_ARM_JUNCTION_TOTAL_ACCIDENTS", "FOUR_ARM_JUNCTION_PERSONS_KILLED", "FOUR_ARM_JUNCTION_INJURED_TOTAL"],
+        "Staggered Junction": ["STAGGERED_JUNCTION_TOTAL_ACCIDENTS", "STAGGERED_JUNCTION_PERSONS_KILLED", "STAGGERED_JUNCTION_INJURED_TOTAL"],
+        "Roundabout Junction": ["ROUNDABOUT_JUNCTION_TOTAL_ACCIDENTS", "ROUNDABOUT_JUNCTION_PERSONS_KILLED", "ROUNDABOUT_JUNCTION_INJURED_TOTAL"],
+        "Others": ["OTHERS_TOTAL_ACCIDENTS", "OTHERS_PERSONS_KILLED", "OTHERS_INJURED_TOTAL"],
+    }
+    
+    # Prepare severity data for each junction type
+    severity_data = []
+    for junction, columns in junction_types.items():
+        total_accidents = df[columns[0]].sum()
+        total_killed = df[columns[1]].sum()
+        total_injured = df[columns[2]].sum()
+        severity_score = np.round((total_killed + total_injured) / total_accidents, 2) if total_accidents > 0 else 0
+        severity_data.append([junction, total_accidents, total_killed, total_injured, severity_score])
+    
+    severity_df = pd.DataFrame(severity_data, columns=["Junction Type", "Total Accidents", "Total Killed", "Total Injured", "Severity Score"])
+    
+    # Create an Altair chart using the severity data
+    st.title("Accident Severity by Junction Type")
+    
+    junction_select = st.selectbox("Select Junction Type", severity_df["Junction Type"].unique())
+    filtered_data = severity_df[severity_df["Junction Type"] == junction_select]
+    
+    severity_chart = alt.Chart(severity_df).mark_bar().encode(
+        x=alt.X('Junction Type', sort='-y'),
+        y='Severity Score',
+        color='Junction Type',
+        tooltip=['Junction Type', 'Total Accidents', 'Total Killed', 'Total Injured', 'Severity Score']
+    ).properties(
+        title="Severity Score by Junction Type",
+        width=600,
+        height=400
+    )
+    st.altair_chart(severity_chart, use_container_width=True)
+    st.write(f"Detailed statistics for {junction_select}:")
+    st.write(filtered_data)
+
+elif option == "Top States with High Accident Rates":
+    # Fetch data from Snowflake
+    df = session.sql(
+        """
+        SELECT States_UTs AS STATE, Total_Accidents FROM project_db.project_schema.roadaccidents2019 
+        ORDER BY Total_Accidents DESC
+        """
+    ).to_pandas()
+    df["TOTAL_ACCIDENTS"] = pd.to_numeric(df["TOTAL_ACCIDENTS"], errors="coerce")
+    
+    # Create a radial chart using Altair
+    chart = alt.Chart(df).mark_arc(innerRadius=60, outerRadius=140, stroke="#fff").encode(
+        theta=alt.Theta("TOTAL_ACCIDENTS:Q", title="Total Accidents"), 
+        color=alt.Color("TOTAL_ACCIDENTS:Q", scale=alt.Scale(scheme="plasma"), legend=alt.Legend(title="Accidents")),
+        tooltip=["STATE:N", "TOTAL_ACCIDENTS:Q"]
+    ).properties(
+        title=alt.TitleParams(text="Top States with High Accident Rates in 2019", fontSize=16, anchor="middle")
+    )
+    
+    # Overlay text labels on the chart
+    labels = alt.Chart(df).mark_text(radius=180, fontSize=12, color="white", fontWeight="bold").encode(
+        theta=alt.Theta("Total_Accidents:Q"),
+        text="State:N",
+        tooltip=["State:N", "Total_Accidents:Q"]
+    )
+    
+    # Combine chart and labels
+    final_chart = chart + labels
+    
+    # Display the enhanced chart
+    st.altair_chart(final_chart, use_container_width=True)
+
+elif option == "Injury Types Analysis":
+    st.header("Injury Types Analysis")
+    st.write("This section displays the analysis of injury types.")
+    
+    # Fetch data from Snowflake
+    df = session.sql(
+        """
+        SELECT 
+            States_UTs AS STATE,
+            SUM(T_Junction_Injured_Grievously) AS T_Junction_Grievously,
+            SUM(T_Junction_Injured_Minor) AS T_Junction_Minor,
+            SUM(T_Junction_Injured_Total) AS T_Junction_Total,
+            SUM(Y_Junction_Injured_Grievously) AS Y_Junction_Grievously,
+            SUM(Y_Junction_Injured_Minor) AS Y_Junction_Minor,
+            SUM(Y_Junction_Injured_Total) AS Y_Junction_Total,
+            SUM(Four_Arm_Junction_Injured_Grievously) AS Four_Arm_Grievously,
+            SUM(Four_Arm_Junction_Injured_Minor) AS Four_Arm_Minor,
+            SUM(Four_Arm_Junction_Injured_Total) AS Four_Arm_Total,
+            SUM(Staggered_Junction_Injured_Grievously) AS Staggered_Grievously,
+            SUM(Staggered_Junction_Injured_Minor) AS Staggered_Minor,
+            SUM(Staggered_Junction_Injured_Total) AS Staggered_Total,
+            SUM(Roundabout_Junction_Injured_Grievously) AS Roundabout_Grievously,
+            SUM(Roundabout_Junction_Injured_Minor) AS Roundabout_Minor,
+            SUM(Roundabout_Junction_Injured_Total) AS Roundabout_Total,
+            SUM(Others_Injured_Grievously) AS Others_Grievously,
+            SUM(Others_Injured_Minor) AS Others_Minor,
+            SUM(Others_Injured_Total) AS Others_Total
+        FROM 
+            project_db.project_schema.roadaccidents2019
+        GROUP BY 
+            States_UTs
+        """
+    ).to_pandas()
+    
+    # Data Transformation
+    data_long = df.melt(
+        id_vars=["STATE"],
+        var_name="INJURY_TYPE",
+        value_name="COUNT"
+    )
+    data_long["JUNCTION_TYPE"] = data_long["INJURY_TYPE"].apply(lambda x: x.split("_")[0])
+    data_long["INJURY_SEVERITY"] = data_long["INJURY_TYPE"].apply(lambda x: "_".join(x.split("_")[1:]))
+    
+    # Streamlit Filters
+    selected_states = st.multiselect(
+        "Select States/UTs:",
+        options=df["STATE"].unique(),
+        default=df["STATE"].unique()
+    )
+    filtered_data = data_long[data_long["STATE"].isin(selected_states)]
+    
+    # Altair Visualization
+    line_chart = alt.Chart(filtered_data).mark_bar().encode(
+        x=alt.X("JUNCTION_TYPE:N", title="Junction Type"),
+        y=alt.Y("COUNT:Q", title="Number of Injuries"),
+        color=alt.Color("INJURY_SEVERITY:N", title="Injury Severity"),
+        tooltip=["STATE", "JUNCTION_TYPE", "INJURY_SEVERITY", "COUNT"]
+    ).properties(
+        title="Trends in Injuries Across Junction Types",
+        width=700,
+        height=400
+    )
+    st.altair_chart(line_chart, use_container_width=True)
+    st.write(filtered_data.head())
+
+# Footer
+st.markdown("<hr>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Powered by <b>Streamlit</b> | AI_FOR_GOOD_HACKATHON 2024</p>", unsafe_allow_html=True)
